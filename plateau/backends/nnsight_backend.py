@@ -1,7 +1,7 @@
 """Run experiment forwards through nnsight, either locally or remotely on NDIF.
 
-Each method issues one nnsight request. All large tensors (per-sample states and
-logits) stay inside the trace; only per-sample distances, argmax tokens, and
+Natural generation uses one request; each path batch uses three forwards. Large
+per-sample tensors stay inside the trace; only distances, top-three candidates, and
 small endpoint summaries are returned.
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ from nnsight import LanguageModel, ndif
 from nnsight.intervention.backends.remote import RemoteBackend
 
 from plateau.core import math as core_math
-from plateau.core.math import arc_segments, effect_metrics, interpolate_tokens
+from plateau.core.math import arc_segments, effect_metrics, interpolate_tokens, top_candidates
 from plateau.core.models import ARCHITECTURES
 
 
@@ -179,7 +179,7 @@ class NnsightBackend:
 
     @torch.no_grad()
     def path(self, lm: LoadedModel, context_ids, patch_layer, patch_start, sources, ts, method,
-             record_layers, include_reference_logits=False, previous=None):
+             record_layers, include_reference_logits=False, previous=None, cancelled=lambda: False):
         """Patch interpolated states into the fixed context and measure every effect metric.
 
         Rows 0 and 1 are the reference endpoints (sources A and B patched in the
@@ -190,7 +190,7 @@ class NnsightBackend:
         previous = previous or {}
         record_layers = list(record_layers)
         blocks, head = lm.blocks, lm.head
-        with lm.model.trace(inp, attention_mask=mask, **self._execution(lm)):
+        with lm.model.trace(inp, attention_mask=mask, use_cache=False, **self._execution(lm)):
             out = dict().save()
             patch = torch.cat([sources, interpolate_tokens(sources[0], sources[1], ts, method)])
             endpoint_l2 = []
@@ -209,6 +209,7 @@ class NnsightBackend:
             out["arc_logits"] = arc_segments(logits[2:], previous.get("logits"))
             out["endpoint_l2"] = torch.stack(endpoint_l2)
             out["tokens"] = logits.argmax(-1)
+            out["top_ids"], out["top_probs"] = top_candidates(logits)
             out["first_error"] = (logits[2] - logits[0]).abs().max()
             out["last_error"] = (logits[-1] - logits[1]).abs().max()
             if include_reference_logits:
@@ -226,4 +227,27 @@ class NnsightBackend:
         }
         if include_reference_logits:
             result["reference_logits"] = out["reference_logits"].cpu()
+        candidate_ids = [out["top_ids"][2:].cpu().tolist()]
+        candidate_probs = [out["top_probs"][2:].cpu().tolist()]
+        next_ids = out["top_ids"][:, :1].to(self.device)
+        # Two further raw-model forwards follow the greedy choices. Patch the
+        # original context span each time; never overwrite a generated token or
+        # feed these later states into the trajectory measurements above.
+        for _ in range(2):
+            if cancelled():
+                raise InterruptedError("Stopped.")
+            inp = torch.cat((inp, next_ids), dim=1)
+            mask = torch.ones_like(inp)
+            context_length = len(context_ids)
+            with lm.model.trace(inp, attention_mask=mask, use_cache=False, **self._execution(lm)):
+                continuation = dict().save()
+                patch = torch.cat([sources, interpolate_tokens(sources[0], sources[1], ts, method)])
+                hidden = _hidden(blocks[patch_layer].output)
+                hidden[:, patch_start:context_length, :] = patch.to(hidden.dtype)
+                continuation["ids"], continuation["probs"] = top_candidates(head.output[:, -1].float())
+            candidate_ids.append(continuation["ids"][2:].cpu().tolist())
+            candidate_probs.append(continuation["probs"][2:].cpu().tolist())
+            next_ids = continuation["ids"][:, :1].to(self.device)
+        result["candidate_ids"] = candidate_ids
+        result["candidate_probs"] = candidate_probs
         return result

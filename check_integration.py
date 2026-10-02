@@ -47,7 +47,7 @@ class Backend:
                 "tokens": [1, 2, 3], "probabilities": [.5, .5, .5]}
 
     def path(self, lm, ids, layer, start, sources, ts, method, record_layers,
-             include_reference_logits=False, previous=None):
+             include_reference_logits=False, previous=None, cancelled=lambda: False):
         self.calls += 1
         if self.oom and self.calls == 2:
             raise RuntimeError("out of memory after a partial path")
@@ -61,6 +61,8 @@ class Backend:
                 "step_lengths": {key: arc[0].tolist() for key, arc in arcs.items()},
                 "last_vectors": {key: arc[1] for key, arc in arcs.items()},
                 "reference_tokens": [0, 1], "tokens": [0] * len(ts),
+                "candidate_ids": [[[0, 1, 2]] * len(ts)] * 3,
+                "candidate_probs": [[[.5, .3, .1]] * len(ts)] * 3,
                 "first_error": 0.0, "last_error": 0.0, "reference_logits": self.points[[0, -1]]}
 
     def describe(self):
@@ -117,6 +119,7 @@ class Measurements(unittest.TestCase):
         self.assertEqual(result["settings"]["batch_retries"], 1)
         self.assertEqual(result["curves"], clean["curves"])
         self.assertEqual(result["effect"], clean["effect"])
+        self.assertEqual(result["path_predictions"], clean["path_predictions"])
 
     def test_cancel_after_final_chunk_and_reuse(self):
         stopped = False

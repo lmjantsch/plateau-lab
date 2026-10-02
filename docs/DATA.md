@@ -27,3 +27,11 @@ Schema 7 retains `curves`, `metrics.c`, `metrics.d`, the original flat d statist
 The Explorer imports schemas 1–7 from JSON (one record or an array) or JSONL. Older results keep their original schema number and metadata. An in-memory display adapter exposes only the measurements actually saved; it never reconstructs c or additional layers from d. Schema-5/6 runs created by the hosted fork therefore remain d-only until rerun. The classic server's file exports preserve old records byte-for-byte in meaning and do not modify their files.
 
 The Explorer's browser CSV contains all available effect rows and additional endpoint metrics. The local `/api/export` CSV preserves its original column order and representative curve layout. Use JSON/JSONL when you need the entire original record and all metadata.
+
+## Per-sample token matrix
+
+New runs add `settings.sample_generation: "top3_greedy_3_tokens"` and `token_matrix` to each `path_predictions` entry. These are optional additions to schemas 4 (legacy server) and 7 (integrated local/NDIF server); existing `t`, `token_id`, and `token` fields retain their meaning.
+
+`token_matrix.steps` is indexed by generation position, then probability rank. It holds up to three columns, each with the top three candidates as `{id, text, probability, is_eos}`. Probabilities come from the complete vocabulary's softmax, without temperature or top-k renormalization. Later columns condition on the preceding rank-one choices. `stop_reason` is `null` after three positions, `"eos"` when a greedy end-of-text token ends generation, or `"nonfinite"` when a distribution is unavailable. The EOS column is retained; all following columns are omitted.
+
+History, Examples and JSON/JSONL exports retain the matrix. Plotting CSV exports keep their existing columns and omit this nested prediction data. Imports without a matrix show a rerun notice; opening them never generates or invents predictions.

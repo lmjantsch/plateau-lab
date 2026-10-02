@@ -52,8 +52,17 @@ def main():
                 torch.testing.assert_close(torch.tensor(row["values"][metric]), torch.tensor(peer["values"][metric]),
                                            atol=2e-3, rtol=2e-3)
         json.dumps(remote_contract, allow_nan=False)
+        for sample, peer in zip(remote_contract["path_predictions"], local["path_predictions"]):
+            assert sample["token_id"] == peer["token_id"]
+            matrix, reference = sample["token_matrix"], peer["token_matrix"]
+            assert matrix["stop_reason"] == reference["stop_reason"]
+            assert len(matrix["steps"]) == len(reference["steps"])
+            for candidates, expected in zip(matrix["steps"], reference["steps"]):
+                assert [t["id"] for t in candidates] == [t["id"] for t in expected]
+                torch.testing.assert_close(torch.tensor([t["probability"] for t in candidates]),
+                                           torch.tensor([t["probability"] for t in expected]), atol=2e-5, rtol=2e-3)
         print(f"PASS {engine.device} {method}: all-layer local/nnsight parity and independent trace-vector arc norms, "
-              "including both batch boundaries and singleton final batch.", flush=True)
+              "including batch boundaries, singleton final batch and all three top-3 prediction columns.", flush=True)
     if args.output:
         local["id"] = "c" * 32
         args.output.write_text(json.dumps(local, allow_nan=False))

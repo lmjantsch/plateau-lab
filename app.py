@@ -127,8 +127,9 @@ class Handler(BaseHTTPRequestHandler):
                 query = parse_qs(route.query)
                 return self.export(query.get("format", ["jsonl"])[0],
                                    query.get("scope", ["examples"])[0])
-            file = (STATIC / ("index.html" if path == "/" else path.lstrip("/"))).resolve()
-            if file.parent != STATIC or not file.is_file():
+            assets = ROOT / "web" if path in ("/token-matrix.js", "/token-matrix.css") else STATIC
+            file = (assets / ("index.html" if path == "/" else path.lstrip("/"))).resolve()
+            if file.parent != assets or not file.is_file():
                 return self.send({"error": "Not found"}, 404)
             return self.send(file.read_bytes(), content_type=(mimetypes.guess_type(file.name)[0] or "application/octet-stream") + "; charset=utf-8")
         except (OSError, ValueError) as exc:

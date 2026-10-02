@@ -105,7 +105,7 @@ function setBusy(value) {
 function invalidate() {
   result=null;
   $('metric-overview').innerHTML=''; $('export-result').disabled=true;
-  ['result-meta','token-details','effect-section'].forEach(id=>$(id).classList.add('hidden'));
+  ['result-meta','token-details','effect-section','inspect'].forEach(id=>$(id).classList.add('hidden'));
   scheduleTokenize();
   layerNote();
   $('status').classList.add('hidden');
@@ -310,6 +310,10 @@ function renderEffect() {
 function renderResult(record) {
   record=PlateauRecords.normalize(record); result=record; setForm(record); remember();
   renderOverview(record);
+  $('inspect').classList.toggle('hidden',!record.path_predictions.length);
+  $('t-slider').max=Math.max(0,record.path_predictions.length-1);
+  $('t-slider').value=Math.floor(record.path_predictions.length/2);
+  updateT();
   $('export-result').disabled=false;
   renderInputTokens(record.input_tokens,[record.settings.patch_start_a,record.settings.patch_start_b],record.settings.patch_position==='different_suffix');
   $('effect-section').classList.remove('hidden');
@@ -335,6 +339,13 @@ function renderResult(record) {
   $('result-meta').innerHTML=`<span><b>${esc(record.model_label)}</b> · ${esc(record.backend?.remote?'NDIF':(record.backend?.device || '').toUpperCase())} · ${esc(record.dtype)}</span><span>${esc(record.settings.interpolation.toUpperCase())} @ ${record.settings.patch_layer===-1?'embedding':'after layer '+record.settings.patch_layer} · ${esc(patchLabel(record.settings))} · ${record.settings.steps} samples · fixed context ${esc((record.settings.context || "a").toUpperCase())}</span><span>Logits max |Δd/Δt| <b>${Number.isFinite(record.metrics.max_abs_slope)?record.metrics.max_abs_slope.toFixed(2):'undefined'}</b> @ t ≈ ${Number.isFinite(record.metrics.peak_t)?record.metrics.peak_t.toFixed(3):'—'}</span><span>${Number.isFinite(record.elapsed_seconds)?record.elapsed_seconds.toFixed(1):'—'} s</span>`;
   $('token-details').classList.remove('hidden');
   $('token-body').innerHTML=record.predictions.map((prediction,i)=>`<div class="token-row">Generated ${i?'B':'A'}: ${prediction.tokens.slice(0,3).map(t=>`<span class="token-chip" title="ID ${t.id} · p=${(100*t.probability).toFixed(2)}%">${esc(tokenText(t.text))}</span>`).join('')}</div>`).join('')+`<p>Greedy next tokens with their probabilities (hover a chip). ␣ marks a space and ↵ a newline. Layers are numbered from 0; resid_post is recorded at the block output, before final normalization (LayerNorm for GPT-2/Pythia; RMSNorm for Qwen). Source: ${esc(record.backend?.remote?'NDIF remote':'local')} model inference · ${esc(formatDate(record.created_at, true))}.</p>`;
+}
+function updateT() {
+  const index=Number($('t-slider').value), sample=result?.path_predictions[index];
+  if(!sample)return;
+  $('t-value').textContent=`t = ${sample.t.toFixed(3)}  → next token ${JSON.stringify(sample.token)}`;
+  $('t-slider').setAttribute('aria-valuetext',`Sample ${index+1} of ${result.path_predictions.length}, t = ${sample.t.toFixed(3)}`);
+  $('token-matrix').innerHTML=PlateauTokenMatrix.render(sample);
 }
 // NDIF key: per-viewer, kept in sessionStorage, or localStorage when "Remember" is checked.
 const KEY_STORE='plateau-ndif-key', CODE_STORE='plateau-lab-code';  // CODE_STORE: read once to migrate
@@ -538,6 +549,7 @@ async function init() {
   });
   loadHistory();
   $('run').onclick=run;
+  $('t-slider').oninput=updateT;
   $('cancel').onclick=async()=>{if(currentJob){try{await api(`/api/jobs/${currentJob}/cancel`,{});toast('Stop requested. The current request must finish first.');}catch(e){toast(e.message);}}};
   $('swap').onclick=()=>{const a=$('sequence-a').value;$('sequence-a').value=$('sequence-b').value;$('sequence-b').value=a;invalidate();};
   document.querySelectorAll('[data-preset]').forEach(b=>b.onclick=()=>preset(Number(b.dataset.preset)));

@@ -40,10 +40,12 @@ For Hugging Face Spaces and per-user NDIF inference, use a separate environment 
 1. **Compare two prompts.** Start with `The house was big` and `The house was in`. Local continuation panels show three words; NDIF panels show three tokens. The result records which generation convention was used.
 2. **Choose where to intervene.** The **Interpolation start** slider selects a block output, **After layer N**. Layers start at 0; the default is after layer 0.
 3. **Choose which tokens to patch.** **First difference → end** interpolates every token from the first mismatch onward and requires equal token counts. **Final token only** also supports unequal lengths and different prefixes.
-4. **Run and inspect.** Choose Linear or SLERP, then click **Run experiment** or press **Cmd/Ctrl + Enter**. Read c(t) first and d(t) directly below. Inspect individual samples, generated tokens and raw path lengths.
+4. **Run and inspect.** Choose Linear or SLERP, then click **Run experiment** or press **Cmd/Ctrl + Enter**. Read c(t) first and d(t) directly below. Slide **Inspect sample** to see a **3 × 3 token matrix**: the three most likely candidates for each of the next three token positions at that t, with their probabilities.
 5. **Keep an example.** Add a category and notes, then **Save example**. Every successful run is already in **History**; Examples holds your annotated selection.
 
 You can change the model, prompts, layer, token scope and sample count to explore another path. Highlighted token chips show exactly which positions are interpolated. Starter pairs are exploration prompts, not guarantees of a plateau.
+
+The token matrix is available in both the Explorer and classic view. Column 2 follows column 1’s top-ranked token; column 3 follows the top-ranked tokens from columns 1 and 2. The highlighted first row is the greedy continuation from the **patched sample**. Probabilities use the full vocabulary, so the three displayed candidates need not total 100%. Generation stops at a greedy end-of-text token; tokens may be word fragments. Predictions are computed during the run and saved with it, so sliding and reopening a result require no inference. Older results show a rerun notice. Computing the extra two columns adds two forwards per sample batch.
 
 ## Read the curves
 

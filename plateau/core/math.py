@@ -8,6 +8,19 @@ from __future__ import annotations
 import torch
 
 
+def top_candidates(logits):
+    """Top three raw-model candidates, with full-vocabulary probabilities.
+
+    Rank one follows argmax's tie breaking, exactly as greedy decoding does.
+    Only the tiny selected tensors need to leave an NDIF trace.
+    """
+    logits = logits.float()
+    first = logits.argmax(-1, keepdim=True)
+    rest = logits.scatter(-1, first, float("-inf")).topk(min(2, logits.shape[-1] - 1), dim=-1).indices
+    ids = torch.cat((first, rest), dim=-1)
+    return ids, logits.softmax(-1).gather(-1, ids)
+
+
 def interpolate(a, b, t, method="slerp"):
     """SLERP directions, linearly interpolated norms (Matthew Shinkle, footnote 1)."""
     t = torch.as_tensor(t, device=a.device, dtype=a.dtype).reshape(-1, 1)

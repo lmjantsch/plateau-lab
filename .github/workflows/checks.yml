@@ -26,7 +26,9 @@ jobs:
           python -m unittest check_trajectory check_hardware check_exports
           python check_math.py
           python check_integration.py
+          python check_token_predictions.py
       - name: Legacy and integrated UI contracts
         run: |
           node check_ui.js
           node check_web.js
+          node check_token_matrix.js

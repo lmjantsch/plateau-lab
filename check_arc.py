@@ -28,6 +28,7 @@ def main():
 
     def independently_capture(*args):
         blocks, layers, ts, batch_size = args[4], args[5], args[6], args[9]
+        context_length = args[2].shape[1]
         latest, handles = {}, []
         observed.clear()
         references.clear()
@@ -42,6 +43,10 @@ def main():
 
         def capture_forward(_, inputs, output):
             nonlocal calls
+            # The matrix's later columns append generated tokens. Only forwards
+            # over the original context belong to the measured trajectory.
+            if inputs[0].shape[1] != context_length:
+                return
             calls += 1
             latest['logits'] = output.logits[:, -1, :].detach().float().cpu().clone()
             target = references if calls <= reference_calls else observed

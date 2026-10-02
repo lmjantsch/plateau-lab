@@ -5,6 +5,7 @@
   <title>MARS V · Plateau Lab</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23252630'/%3E%3Cpath d='M7 30h10l6-20h10' stroke='%23b7acf9' stroke-width='3' fill='none'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="../token-matrix.css">
 </head>
 <body>
   <aside class="sidebar">
@@ -74,7 +75,7 @@
         <div id="charts" class="chart-grid"></div>
         <div class="formula">d(t) = ‖z(t) − z(0)‖₂ / (‖z(t) − z(0)‖₂ + ‖z(t) − z(1)‖₂)<span>Coincident endpoints: d(t) undefined, even when the path moves.</span></div>
       </section>
-      <section id="inspect" class="inspect hidden"><div><label for="t-slider">Inspect sample</label><input id="t-slider" type="range" min="0" max="40" value="20"><span id="t-value"></span></div><div id="sample-values" class="sample-values" aria-live="polite"></div><p>c(t): cumulative path progress. d(t): relative endpoint distance. Raw lengths use the readout’s vector units. The next token is a single prediction at t; the panels above show three-word continuations for the original A and B.</p></section>
+      <section id="inspect" class="inspect hidden"><div class="sample-slider"><label for="t-slider">Inspect sample</label><input id="t-slider" type="range" min="0" max="40" step="1" value="20"><output id="t-value" for="t-slider"></output></div><div id="token-matrix" class="token-matrix" aria-live="polite"></div><div id="sample-values" class="sample-values" aria-live="polite"></div><p>c(t): cumulative path progress. d(t): relative endpoint distance. Raw lengths use the readout’s vector units. The matrix uses the patched sample at t; the panels above show continuations for the original A and B.</p></section>
       <details id="token-details" class="hidden"><summary>Inspect generated tokens</summary><div id="token-body"></div></details>
       <section class="save-bar"><div><strong>Worth keeping?</strong><p>Every completed run is in History. Add your observations and save it to Examples.</p></div><label class="sr-only" for="tag">Category</label><select id="tag"><option>Unclassified</option><option>Plateau</option><option>Smooth transition</option><option>Multiple transitions</option><option>To investigate</option></select><label class="sr-only" for="notes">Notes</label><input id="notes" placeholder="Add your observations…"><button id="save" class="primary" disabled>＋ Save example</button></section>
     </section>
@@ -84,6 +85,6 @@
       <p class="library-caption" id="library-caption"></p><div id="library-grid" class="library-grid"></div>
     </section>
     <footer><span>MARS V · An example-first workbench</span><a href="https://www.lesswrong.com/posts/WMfSbt7AAcJdHzysB/activation-plateaus-where-and-how-they-emerge" target="_blank" rel="noreferrer">Method reference ↗</a></footer>
-  </main><div id="toast" class="toast hidden" role="status"></div><script src="app.js"></script>
+  </main><div id="toast" class="toast hidden" role="status"></div><script src="../token-matrix.js"></script><script src="app.js"></script>
 </body>
 </html>

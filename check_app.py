@@ -50,6 +50,8 @@ def main():
             assert page.index('id="c-section"') < page.index('id="d-section"')
             if args.fastapi:
                 assert b'id="effect-section"' in request('/', raw=True)
+            assert b'PlateauTokenMatrix' in request('/token-matrix.js', raw=True)
+            assert b'.token-matrix-table' in request('/token-matrix.css', raw=True)
             for method in ('linear', 'slerp'):
                 job_id = request('/api/run', dict(model=args.model, sequence_a='The house was big',
                     sequence_b='The house was in', patch_layer=0, interpolation=method, steps=21,
@@ -64,6 +66,11 @@ def main():
                 assert job['status'] == 'done', job
                 record = job['result']
                 assert record['schema_version'] == (7 if args.fastapi else 4)
+                assert len(record['path_predictions']) == 21
+                assert all(len(sample['token_matrix']['steps']) == 3 or sample['token_matrix']['stop_reason']
+                           for sample in record['path_predictions'])
+                assert all(len(column) == 3 for sample in record['path_predictions']
+                           for column in sample['token_matrix']['steps'])
                 if args.fastapi:
                     assert len(record['effect']['rows']) == len(record['l2_distances']['layers']) + 1
                 assert all(c['c'][0] == 0 and c['c'][-1] == 1 for c in record['curves'])
@@ -71,6 +78,7 @@ def main():
                 request('/api/examples', dict(id=job_id, tag='Plateau', notes='HTTP arc round trip'))
                 saved = next(r for r in request('/api/library')['examples'] if r['id'] == job_id)
                 assert saved['curves'] == record['curves']
+                assert saved['path_predictions'] == record['path_predictions']
                 assert saved['metric_definitions'] == record['metric_definitions']
                 print(f'PASS HTTP: {method}, real {args.model} on {record["device"]}, run/poll/save/reload.', flush=True)
 
@@ -99,6 +107,7 @@ def main():
                 exported = request('/api/export', dict(payload, format='jsonl'), raw=True)
                 decoded = [json.loads(line) for line in exported.splitlines()]
                 assert decoded[0]['curves'] == record['curves']
+                assert decoded[0]['path_predictions'] == record['path_predictions']
                 assert decoded[0]['metric_definitions'] == record['metric_definitions']
                 if scope == 'history':
                     assert decoded[1] == legacy

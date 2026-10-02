@@ -5,6 +5,7 @@
   <title>MARS V · Plateau Lab</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23252630'/%3E%3Cpath d='M7 30h10l6-20h10' stroke='%23b7acf9' stroke-width='3' fill='none'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="token-matrix.css">
 </head>
 <body>
   <aside class="sidebar">
@@ -51,6 +52,10 @@
       <button id="export-result" class="secondary">Export current result JSON</button>
       <div id="metric-overview"></div>
       <div id="result-meta" class="result-meta hidden"></div>
+      <section id="inspect" class="inspect hidden" aria-label="Sample predictions">
+        <div class="sample-slider"><label for="t-slider">Inspect sample</label><input id="t-slider" type="range" min="0" max="40" step="1" value="20"><output id="t-value" for="t-slider"></output></div>
+        <div id="token-matrix" class="token-matrix" aria-live="polite"></div>
+      </section>
       <section class="curves-section" aria-labelledby="curves-heading">
         <div class="section-heading"><div><div class="pair-label"><span id="curves-heading"><b>02</b> Effect of the interpolation</span></div><p class="chart-explanation">How each layer and the logits respond as the patched state moves from A (t = 0) to B (t = 1). Measured at the final token.</p></div></div>
         <div id="effect-placeholder" class="chart-wait"><svg viewBox="0 0 96 40" aria-hidden="true"><path d="M5 32h22c15 0 12-24 28-24h34"/></svg><div>Explore the response of the model.<small>Run to see the effect curves for every layer from the patch on, and how they change across layers.</small></div></div>
@@ -90,6 +95,6 @@
       <div id="history-grid" class="library-grid"></div>
     </section>
     <footer><span>MARS V · An example-first Explorer</span><a href="https://www.lesswrong.com/posts/WMfSbt7AAcJdHzysB/activation-plateaus-where-and-how-they-emerge" target="_blank" rel="noreferrer">Method reference ↗</a></footer>
-  </main><div id="toast" class="toast hidden" role="status"></div><script src="config.js"></script><script src="records.js"></script><script src="app.js"></script>
+  </main><div id="toast" class="toast hidden" role="status"></div><script src="config.js"></script><script src="records.js"></script><script src="token-matrix.js"></script><script src="app.js"></script>
 </body>
 </html>

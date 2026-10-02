@@ -288,6 +288,7 @@ function updateT() {
   const index=Number($('t-slider').value),p=result.path_predictions[index];
   $('t-value').textContent=`t = ${p.t.toFixed(3)}  → next token ${JSON.stringify(p.token)}`;
   $('t-slider').setAttribute('aria-valuetext',`Sample ${index+1} of ${result.path_predictions.length}, t = ${p.t.toFixed(3)}`);
+  $('token-matrix').innerHTML=PlateauTokenMatrix.render(p);
   $('sample-values').innerHTML=result.curves.map(curve=>{
     const value=metric=>Number.isFinite(curve[metric]?.[index])?curve[metric][index].toFixed(5):metricMessage(curve,metric);
     return `<div><strong>${esc(curve.title)}</strong><span>c(t): ${esc(value('c'))}</span><span>d(t): ${esc(value('d'))}</span>${Object.hasOwn(curve,'c')?`<small>Cumulative L2: ${formatL2(curve.cumulative_length[index])} / total path L2: ${formatL2(curve.total_length)}</small>`:''}</div>`;

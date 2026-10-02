@@ -19,6 +19,8 @@ from models import CACHE, DOWNLOAD_FILES, MODELS, cached_snapshot
 from hardware import Hardware, is_out_of_memory
 from trajectory import METRIC_DEFINITIONS, TrajectoryReadout, relative_distance, summarize
 from plateau.core.results import EffectReadout, add_effect
+from plateau.core.math import top_candidates
+from plateau.core.predictions import sample_prediction
 
 ROOT = Path(__file__).resolve().parent
 WORD = re.compile(r"\b[^\W_]+(?:['’\-][^\W_]+)*\b", re.UNICODE)
@@ -196,10 +198,11 @@ class Engine:
         captures = {}
         sample_keys = {str(layer) for layer in record_layers}
         capture_all = True
+        capture_enabled = True
 
         def capture(name):
             def hook(module, args, output):
-                if not capture_all and name not in sample_keys:
+                if not capture_enabled or (not capture_all and name not in sample_keys):
                     return
                 hidden = output[0] if isinstance(output, tuple) else output
                 captures[name] = hidden[:, -1, :].detach().clone()
@@ -211,7 +214,9 @@ class Engine:
         def patch(module, args, output):
             hidden = output[0] if isinstance(output, tuple) else output
             hidden = hidden.clone()
-            hidden[:, patch_start:, :] = current_patch
+            # During continuation, patch only the original prompt positions.
+            # Recompute the full prefix without a cache; generated tokens remain natural.
+            hidden[:, patch_start:context_input.shape[1], :] = current_patch
             return (hidden,) + output[1:] if isinstance(output, tuple) else hidden
 
         handles = []
@@ -259,19 +264,37 @@ class Engine:
                 if count < batch_size:
                     current_patch = torch.cat((current_patch, current_patch[-1:].expand(batch_size - count, -1, -1)))
                 batch = context_input.expand(batch_size, -1)
-                logits = self.model(batch, use_cache=False).logits[:count, -1, :].float()
+                capture_enabled = True
+                all_logits = self.model(batch, use_cache=False).logits[:, -1, :].float().clone()
+                logits = all_logits[:count]
                 for layer in record_layers:
                     key = str(layer)
                     readouts[key].append(captures[key][:count].float())
                 readouts["logits"].append(logits)
-                for alpha, scores in zip(ts[offset:offset + batch_size].cpu().tolist(), logits):
-                    token = int(scores.argmax())
-                    predictions_path.append({"t": alpha, "token_id": token, "token": self.tokenizer.decode([token])})
                 if offset == 0:
                     endpoint_errors["A"] = float((logits[0] - endpoints_logits[0]).abs().max())
                 if offset + batch_size >= steps:
                     endpoint_errors["B"] = float((logits[-1] - endpoints_logits[1]).abs().max())
-                progress(f"Measuring c(t) path lengths and d(t): {min(offset + batch_size, steps)} / {steps} samples", 0.2 + 0.78 * min(offset + batch_size, steps) / steps)
+                # The first distribution is the very same readout used above.
+                # Later generation forwards must never contribute to c/d or arc lengths.
+                capture_enabled = False
+                captures.clear()
+                candidate_ids, candidate_probs = [], []
+                for step in range(3):
+                    if cancelled():
+                        raise InterruptedError("Stopped. This incomplete experiment will not be saved.")
+                    if step:
+                        batch = torch.cat((batch, top_ids[:, :1]), dim=1)
+                        all_logits = self.model(batch, use_cache=False).logits[:, -1, :].float().clone()
+                    top_ids, top_probs = top_candidates(all_logits)
+                    candidate_ids.append(top_ids[:count].cpu().tolist())
+                    candidate_probs.append(top_probs[:count].cpu().tolist())
+                for index, alpha in enumerate(ts[offset:offset + batch_size].cpu().tolist()):
+                    predictions_path.append(sample_prediction(self.tokenizer, alpha,
+                        [step[index] for step in candidate_ids], [step[index] for step in candidate_probs]))
+                progress(f"Measuring c(t), d(t) and top-3 token continuations: {min(offset + batch_size, steps)} / {steps} samples", 0.2 + 0.78 * min(offset + batch_size, steps) / steps)
+            if cancelled():
+                raise InterruptedError("Stopped. This incomplete experiment will not be saved.")
         finally:
             for handle in handles:
                 handle.remove()
@@ -408,6 +431,7 @@ class Engine:
                          "prediction_cache": True, "batch_retries": batch_retries,
                          "record_layers": record_layers, "representative_layers": representative,
                          "patch_position": patch_position, "generation": "greedy_3_words",
+                         "sample_generation": "top3_greedy_3_tokens",
                          "patch_start_a": patch_starts[0], "patch_start_b": patch_starts[1],
                          "patch_start_context": patch_start, "patch_count": patch_count,
                          "interpolation_unit": "per_token_shared_t", "measurement_position": "last_token",

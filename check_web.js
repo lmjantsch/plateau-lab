@@ -32,7 +32,7 @@ const html=fs.readFileSync('web/index.html','utf8');
 for(const m of html.matchAll(/id="([^"]+)"/g)){assert(!elements.has(m[1]),'duplicate id '+m[1]);elements.set(m[1],element(m[1]));}
 const document={getElementById:id=>{if(!elements.has(id))elements.set(id,element(id));return elements.get(id);},
   querySelectorAll:()=>[],createElement:tag=>element(tag)};
-const context=vm.createContext({PlateauRecords:records,document,window:{},console,
+const context=vm.createContext({PlateauRecords:records,PlateauTokenMatrix:require('./web/token-matrix.js'),document,window:{},console,
   localStorage:{setItem(){}},fixture:current,legacy:old,saved:[],messages:[]});
 vm.runInContext(fs.readFileSync('web/app.js','utf8').replace(/\ninit\(\);\s*$/,''),context);
 const run=code=>vm.runInContext(code,context);
@@ -40,6 +40,12 @@ run('modelLayers[fixture.model]=6; renderResult(fixture)');
 assert.equal(elements.get('effect-metric').value,'c');
 assert.match(elements.get('metric-overview').innerHTML,/Cumulative path progress c\(t\)/);
 assert.match(elements.get('metric-overview').innerHTML,/Relative endpoint distance d\(t\)/);
+run(`result.path_predictions=[{t:0,token:' <first>',token_matrix:{steps:[[{id:1,text:' <first>',probability:.6}], [{id:2,text:' next',probability:.2}], [{id:3,text:' last',probability:.1}]],stop_reason:null}},{t:1,token:'old'}];$('t-slider').value=0;updateT();`);
+assert.match(elements.get('token-matrix').innerHTML,/␣&lt;first&gt;/);
+assert.match(elements.get('token-matrix').innerHTML,/60.00%/);
+run(`delete result.path_predictions[1].token_matrix;$('t-slider').value=1;updateT();`);
+assert.match(elements.get('token-matrix').innerHTML,/Rerun the experiment/);
+assert(!elements.get('token-matrix').innerHTML.includes('&lt;first&gt;'));
 run('renderResult(legacy)');
 assert.equal(elements.get('effect-metric').value,'relative_l2_shinkle');
 assert.match(elements.get('metric-overview').innerHTML,/rerun to measure/);

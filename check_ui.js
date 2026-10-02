@@ -25,7 +25,7 @@ elements.set('help-group',element('help-group'));
 const document={activeElement:null,handlers:{},getElementById:id=>{
   assert(elements.has(id),`missing element: ${id}`);return elements.get(id);
 },addEventListener:(name,fn)=>{document.handlers[name]=fn;}};
-const context=vm.createContext({document,console});
+const context=vm.createContext({document,console,PlateauTokenMatrix:require('./web/token-matrix.js')});
 const source=fs.readFileSync(path.join(__dirname,'static/app.js'),'utf8').replace(/\ninit\(\);\s*$/,'');
 vm.runInContext(source,context);
 function run(code){return vm.runInContext(code,context);}
@@ -42,6 +42,14 @@ assert(html.indexOf('id="c-section"')<html.indexOf('id="d-section"'));
 assert.match(run('metricSummary(record,"c")'),/Δc\/Δt/);
 assert.match(run('metricSummary(record,"d")'),/Δd\/Δt/);
 run('result={...record,path_predictions:[{t:0,token:"A"},{t:.5,token:"B"},{t:1,token:"C"}]};');
+elements.get('t-slider').value='1';run('updateT()');
+assert.match(elements.get('token-matrix').innerHTML,/Rerun the experiment/);
+run(`result.path_predictions[1].token_matrix={steps:[[{id:1,text:' <one>',probability:.5}], [{id:2,text:' two',probability:.25}], [{id:3,text:' three',probability:.1}]],stop_reason:null};updateT();`);
+assert.match(elements.get('token-matrix').innerHTML,/␣&lt;one&gt;/);
+assert.match(elements.get('token-matrix').innerHTML,/50.00%/);
+assert.match(elements.get('token-matrix').innerHTML,/Token \+3/);
+elements.get('t-slider').value='2';run('updateT()');
+assert.match(elements.get('token-matrix').innerHTML,/Rerun the experiment/);
 elements.get('t-slider').value='1';run('updateT()');
 assert.match(elements.get('sample-values').innerHTML,/c\(t\): 0.75000/);
 assert.match(elements.get('sample-values').innerHTML,/d\(t\): 0.20000/);

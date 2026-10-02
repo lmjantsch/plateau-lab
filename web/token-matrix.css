@@ -1,0 +1,30 @@
+/* The same sample inspector is used in the hosted and classic interfaces. */
+.inspect .sample-slider{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.inspect .sample-slider label{font-weight:600;font-size:12px}
+.inspect .sample-slider input{max-width:none;min-width:120px;height:26px}
+.inspect .token-matrix{display:block;margin-top:18px}
+.token-matrix-heading{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+.token-matrix-heading strong{font-size:13px;font-weight:600}
+.token-matrix-heading span{font-size:11px;color:#626574;overflow-wrap:anywhere}
+.token-matrix-heading code{color:#6550af;white-space:pre-wrap}
+.token-matrix-scroll{overflow-x:auto;border:1px solid #dfdee7;border-radius:8px;background:white}
+.token-matrix-scroll:focus-visible{outline:2px solid var(--purple);outline-offset:3px}
+.token-matrix-table{width:100%;min-width:410px;border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabular-nums}
+.token-matrix-table th,.token-matrix-table td{padding:12px 14px;text-align:left;border-bottom:1px solid #e9e7ef;vertical-align:top;overflow-wrap:anywhere}
+.token-matrix-table th:first-child{width:65px}
+.token-matrix-table thead th{font-size:12px;font-weight:600;color:#535163;background:#faf9fc}
+.token-matrix-table small{display:block;font-size:10px;font-weight:400;color:#777484;margin-top:5px;line-height:1.5}
+.token-matrix-table tbody th{font-size:13px;color:#797583;font-weight:500}
+.token-matrix-table td+td{border-left:1px solid #eeedf3}
+.token-matrix-table tbody tr:last-child>*{border-bottom:0}
+.token-matrix-table code{font-size:14px;line-height:1.5;white-space:pre-wrap;color:#343040}
+.token-matrix-greedy{background:#f1edf9}
+.token-matrix-greedy th,.token-matrix-greedy code{color:#5d489e}
+.token-matrix-prob{display:block;margin-top:7px;font-size:11px;color:#656171}
+.token-matrix-bar{display:block;height:3px;background:#e9e6f0;border-radius:2px;margin-top:7px;overflow:hidden}
+.token-matrix-bar i{display:block;height:100%;background:#9584cb}
+.token-matrix-greedy .token-matrix-bar i{background:#7762c7}
+.token-matrix-eos{display:block;font-size:10px;color:#6f598e;margin-top:4px}
+.token-matrix-empty{color:#9793a2}
+.inspect .token-matrix-note,.inspect .token-matrix-notice{font-size:11px;line-height:1.7;color:#6d6979;margin:10px 0 0}
+@media(max-width:600px){.token-matrix-table th,.token-matrix-table td{padding:10px}.inspect .sample-slider #t-value{width:100%}}

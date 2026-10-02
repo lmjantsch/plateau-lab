@@ -9,6 +9,7 @@ import torch
 from plateau.core.math import DEFAULT_METRIC, METRICS, interpolate_tokens, transition_width
 from plateau.core.models import MODELS
 from plateau.core.results import add_effect, arc_from_segments
+from plateau.core.predictions import sample_prediction
 from plateau.core.trajectory import summarize
 import math
 
@@ -145,13 +146,14 @@ def run_experiment(backend, request, batch_size, progress=lambda *_: None, cance
         rows = {key: {metric: [] for metric in METRICS} for key in keys}
         lengths = {key: [] for key in keys}
         previous = None
-        path_tokens, endpoint_errors, gaps = [], {}, {}
+        predictions_path, endpoint_errors, gaps = [], {}, {}
         try:
             for offset in range(0, steps, batch_size):
                 if cancelled():
                     raise InterruptedError("Stopped.")
                 chunk = backend.path(lm, context_ids, patch_layer, patch_start, sources, ts[offset:offset + batch_size],
-                                     method, record_layers, include_reference_logits=offset == 0, previous=previous)
+                                     method, record_layers, include_reference_logits=offset == 0,
+                                     previous=previous, cancelled=cancelled)
                 previous = chunk["last_vectors"]
                 if offset == 0:
                     gaps = chunk["gaps"]
@@ -165,9 +167,12 @@ def run_experiment(backend, request, batch_size, progress=lambda *_: None, cance
                     lengths[key].extend(chunk["step_lengths"][key])
                     for metric in METRICS:
                         rows[key][metric].extend(chunk["values"][key][metric])
-                path_tokens.extend(chunk["tokens"])
+                for index, t in enumerate(ts[offset:offset + batch_size].tolist()):
+                    predictions_path.append(sample_prediction(tokenizer, t,
+                        [step[index] for step in chunk["candidate_ids"]],
+                        [step[index] for step in chunk["candidate_probs"]]))
                 done = min(offset + batch_size, steps)
-                progress(f"Measuring c(t) and endpoint metrics: {done} / {steps} samples", 0.2 + 0.78 * done / steps)
+                progress(f"Measuring c(t), endpoint metrics and top-3 token continuations: {done} / {steps} samples", 0.2 + 0.78 * done / steps)
             if cancelled():
                 raise InterruptedError("Stopped.")
             break
@@ -185,8 +190,6 @@ def run_experiment(backend, request, batch_size, progress=lambda *_: None, cance
 
     natural_gaps = {side: float((reference_logits[i] - natural_logits[i]).abs().max()) for i, side in enumerate(("A", "B"))}
     t_values = ts.tolist()
-    predictions_path = [{"t": t, "token_id": token, "token": tokenizer.decode([token])}
-                        for t, token in zip(t_values, path_tokens)]
     readouts = {}
     for key in keys:
         gap = gaps[key]
@@ -231,6 +234,7 @@ def run_experiment(backend, request, batch_size, progress=lambda *_: None, cance
         "settings": {"patch_layer": patch_layer, "steps": steps, "interpolation": method,
                      "batch_size": batch_size, "batch_retries": retries, "record_layers": record_layers, "representative_layers": representative,
                      "patch_position": patch_position, "generation": "greedy_3_tokens",
+                     "sample_generation": "top3_greedy_3_tokens",
                      "patch_start_a": starts[0], "patch_start_b": starts[1],
                      "patch_start_context": patch_start, "patch_count": patch_count,
                      "interpolation_unit": "per_token_shared_t", "measurement_position": "last_token",
